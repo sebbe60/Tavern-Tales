@@ -4,13 +4,16 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import TavernPage from "@/pages/Tavern";
+import Lobby from "@/pages/Lobby";
+import CharacterCreation from "@/pages/CharacterCreation";
+import GamePage from "@/pages/Game";
 
 function Router() {
   return (
     <Switch>
-      {/* Default route for the prototype */}
-      <Route path="/" component={TavernPage} />
+      <Route path="/" component={Lobby} />
+      <Route path="/character-creation" component={CharacterCreation} />
+      <Route path="/game" component={GamePage} />
       <Route component={NotFound} />
     </Switch>
   );
