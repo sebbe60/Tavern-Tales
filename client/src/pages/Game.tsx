@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings, Share2, Copy, Dices } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { saveChatHistory, loadChatHistory } from "@/lib/storage";
 import generatedBg from "@assets/generated_images/fantasy_tavern_interior_background_blurred.png";
 
 export default function GamePage() {
@@ -30,6 +31,17 @@ export default function GamePage() {
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    const gameId = localStorage.getItem("gameId");
+    
+    // Try to load from cache first for instant display
+    const cached = loadChatHistory(gameId || "");
+    if (cached) {
+      setMessages(cached.map((m: any) => ({
+        ...m,
+        timestamp: new Date(m.timestamp).getTime()
+      })));
+    }
+    
     loadGameState();
     
     // Poll for updates every 3 seconds
@@ -92,10 +104,14 @@ export default function GamePage() {
       }
       
       // Update messages
-      setMessages(state.messages.map((m: any) => ({
+      const formattedMessages = state.messages.map((m: any) => ({
         ...m,
         timestamp: new Date(m.timestamp).getTime()
-      })));
+      }));
+      setMessages(formattedMessages);
+      
+      // Save to localStorage for offline access
+      saveChatHistory(gameId, state.messages);
       
       // Update turn phase
       setTurnPhase(state.game.turnPhase);
