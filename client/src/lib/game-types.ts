@@ -5,43 +5,26 @@ export interface Stats {
   int: number;
   wis: number;
   cha: number;
+  luck?: number;
+  per?: number;
+  agi?: number;
+  end?: number;
 }
 
-export interface Skills {
-  acrobatics: number;
-  animalHandling: number;
-  arcana: number;
-  athletics: number;
-  deception: number;
-  history: number;
-  insight: number;
-  intimidation: number;
-  investigation: number;
-  medicine: number;
-  nature: number;
-  perception: number;
-  performance: number;
-  persuasion: number;
-  religion: number;
-  sleightOfHand: number;
-  stealth: number;
-  survival: number;
-}
-
-export interface SavingThrows {
-  str: boolean;
-  dex: boolean;
-  con: boolean;
-  int: boolean;
-  wis: boolean;
-  cha: boolean;
-}
-
-export interface Spell {
+export interface StatusEffect {
   name: string;
-  level: number;
-  school: string;
+  description?: string;
+  duration?: number; // turns remaining
+  severity?: "minor" | "moderate" | "severe";
+}
+
+export interface Ability {
+  name: string;
   description: string;
+  cooldown: number; // total cooldown in turns
+  currentCooldown: number; // remaining cooldown (0 = ready)
+  power?: "weak" | "moderate" | "strong" | "ultimate";
+  type?: string;
 }
 
 export interface Character {
@@ -51,16 +34,15 @@ export interface Character {
   race: string;
   class: string;
   level: number;
+  xp: number;
+  xpToNextLevel: number;
   hp: { current: number; max: number };
   mp: { current: number; max: number };
   stats: Stats;
-  skills?: Skills;
-  savingThrows?: SavingThrows;
-  proficiencies?: string[];
+  statusEffects: StatusEffect[];
+  abilities: Ability[];
   inventory: string[];
-  spells?: Spell[];
   avatar?: string | null;
-  status: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -73,6 +55,7 @@ export interface Message {
   author: string;
   content: string;
   diceRoll?: { dice: string; result: number; rolls: number[] } | null;
+  characterUpdates?: Record<string, any>;
   timestamp: number;
 }
 

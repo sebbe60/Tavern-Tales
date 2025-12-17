@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, jsonb, timestamp, boolean, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -38,44 +38,40 @@ export const insertPlayerSchema = createInsertSchema(players).omit({
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type Player = typeof players.$inferSelect;
 
-// Character Sheets
+// Expanded stats schema - includes base D&D stats plus additional options
 export const statsSchema = z.object({
-  str: z.number(),
-  dex: z.number(),
-  con: z.number(),
-  int: z.number(),
-  wis: z.number(),
-  cha: z.number(),
+  str: z.number().default(1),
+  dex: z.number().default(1),
+  con: z.number().default(1),
+  int: z.number().default(1),
+  wis: z.number().default(1),
+  cha: z.number().default(1),
+  // Additional stats
+  luck: z.number().default(1).optional(),
+  per: z.number().default(1).optional(), // Perception as separate stat
+  agi: z.number().default(1).optional(), // Agility
+  end: z.number().default(1).optional(), // Endurance
 });
 
-export const skillsSchema = z.object({
-  acrobatics: z.number(),
-  animalHandling: z.number(),
-  arcana: z.number(),
-  athletics: z.number(),
-  deception: z.number(),
-  history: z.number(),
-  insight: z.number(),
-  intimidation: z.number(),
-  investigation: z.number(),
-  medicine: z.number(),
-  nature: z.number(),
-  perception: z.number(),
-  performance: z.number(),
-  persuasion: z.number(),
-  religion: z.number(),
-  sleightOfHand: z.number(),
-  stealth: z.number(),
-  survival: z.number(),
-});
-
-export const spellSchema = z.object({
+// Status effect schema - for conditions like poisoned, on fire, etc.
+export const statusEffectSchema = z.object({
   name: z.string(),
-  level: z.number(),
-  school: z.string(),
-  description: z.string(),
+  description: z.string().optional(),
+  duration: z.number().optional(), // turns remaining, null = permanent until removed
+  severity: z.enum(["minor", "moderate", "severe"]).optional(),
 });
 
+// Skill/Ability schema with cooldowns
+export const abilitySchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  cooldown: z.number(), // total cooldown in turns
+  currentCooldown: z.number().default(0), // remaining cooldown (0 = ready)
+  power: z.enum(["weak", "moderate", "strong", "ultimate"]).optional(),
+  type: z.string().optional(), // "attack", "heal", "buff", "debuff", etc.
+});
+
+// Character Sheets
 export const characters = pgTable("characters", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
@@ -83,16 +79,28 @@ export const characters = pgTable("characters", {
   race: text("race").notNull(),
   class: text("class").notNull(),
   level: integer("level").notNull().default(1),
+  
+  // XP System
+  xp: integer("xp").notNull().default(0),
+  xpToNextLevel: integer("xp_to_next_level").notNull().default(100),
+  
+  // Resources
   hp: jsonb("hp").notNull().$type<{ current: number; max: number }>(),
   mp: jsonb("mp").notNull().$type<{ current: number; max: number }>(),
+  
+  // Stats (flexible, no limits)
   stats: jsonb("stats").notNull().$type<z.infer<typeof statsSchema>>(),
-  skills: jsonb("skills").$type<z.infer<typeof skillsSchema>>(),
-  savingThrows: jsonb("saving_throws").$type<{ str: boolean; dex: boolean; con: boolean; int: boolean; wis: boolean; cha: boolean }>(),
-  proficiencies: text("proficiencies").array().notNull().default(sql`ARRAY[]::text[]`),
+  
+  // Dynamic status effects (managed by AI)
+  statusEffects: jsonb("status_effects").$type<z.infer<typeof statusEffectSchema>[]>().default([]),
+  
+  // Dynamic abilities/skills with cooldowns (created by AI)
+  abilities: jsonb("abilities").$type<z.infer<typeof abilitySchema>[]>().default([]),
+  
+  // Inventory (managed by AI)
   inventory: text("inventory").array().notNull().default(sql`ARRAY[]::text[]`),
-  spells: jsonb("spells").$type<z.infer<typeof spellSchema>[]>(),
+  
   avatar: text("avatar"),
-  status: text("status").notNull().default("Healthy"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -114,6 +122,8 @@ export const messages = pgTable("messages", {
   author: text("author").notNull(),
   content: text("content").notNull(),
   diceRoll: jsonb("dice_roll").$type<{ dice: string; result: number; rolls: number[] }>(),
+  // Character updates embedded in AI messages
+  characterUpdates: jsonb("character_updates").$type<Record<string, any>>(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
