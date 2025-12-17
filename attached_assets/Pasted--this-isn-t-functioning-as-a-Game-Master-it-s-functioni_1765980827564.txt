@@ -1,0 +1,64 @@
+—this isn't functioning as a Game Master; it’s functioning like a generic story generator that is ignoring your input and writing the story for you.
+
+Based on that log, here are the three major things going wrong:
+
+Hallucination of Tags: The AI is outputting [/INST]. This means the "prompt template" (the code structure sending messages to the AI) is broken or the AI is confused about when it's supposed to stop talking.
+
+Puppeteering: The AI is ignoring the "stop" rule. It describes the tavern, then the keeper, then the guard, then the mill, all in one go. It’s "railroading" you (forcing the story) rather than letting you play.
+
+Context Amnesia: It doesn't know who "Sebbo" or "Bobby" are because that data likely isn't in the System Prompt.
+
+Here is how we fix this. You need a robust System Instruction (the hidden set of rules the AI reads before the game starts) and a strict Stop Sequence.
+
+1. The Fix: The "System Prompt"
+You need to replace the AI's base instructions with something strict. Paste this into your AI's "System Message" or "Context" field:
+
+You are the Dungeon Master (DM) for a D&D 5e campaign.
+
+The Players:
+
+Sebbe: [Insert Class/Race/Stats here, e.g., Level 3 Rogue, High Dex]
+
+Bobby: [Insert Class/Race/Stats here, e.g., Level 3 Paladin, High Str]
+
+Your Rules:
+
+DO NOT act for the players. Never write dialogue or actions for Sebbe or Bobby. Only describe the environment and NPCs.
+
+Check Stats: If a player attempts an action, check their specific stats (Strength, Charisma, etc.) to determine the difficulty or outcome. Ask for a roll if the outcome is uncertain.
+
+Turn-Based: After you describe a scene, STOP and wait for the players to reply. Do not advance the plot until they make a choice.
+
+Formatting: Use Bold for NPC names and Italics for sensory details.
+
+Brevity: Keep descriptions concise. Allow the players to explore.
+
+Current Goal: The players are in a tavern.
+
+2. Fixing the "Puppeteering" (The Infinite Text)
+The AI is currently writing: Response -> Player Input -> Response -> Player Input all inside its own head.
+
+If you are using an API (like OpenAI, Anthropic, or HuggingFace), you need to ensure you are passing the chat history correctly.
+
+The conversation structure sent to the AI must look like this:
+
+System: (The prompt above)
+
+AI: The tavern is loud. What do you do?
+
+User (Sebbe): I go to the bar.
+
+User (Bobby): I look for a fight.
+
+AI: (Generates response based on above)
+
+If the AI sees [/INST] in its own output, it usually means your code is sending the prompt as a raw string rather than a structured list of messages.
+
+3. Fixing the "Generic" Feeling
+To make it recognize stats, you have to explicitly feed the character sheets into the context.
+
+Example of how to prompt the AI for a specific check: If the user says "I intimidate the guard," the AI needs to know who is talking.
+
+Bad: "The guard is scared."
+
+Good: "Sebbe, your Charisma is low (-1). You snarl at the guard, but your voice cracks. The guard laughs at you. Bobby, do you step in?"

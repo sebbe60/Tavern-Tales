@@ -1,0 +1,29 @@
+Game Master
+15:07
+ Game Master: The tavern hums with the low murmur of conversation and the occasional clink of tankards. A fire crackles in the hearth, casting flickering shadows across the rough-hewn wooden tables. The scent of roasted meat and ale lingers in the air. What would you like to do, adventurers?
+
+sebbo: i want to see the tavern keeper
+bobby: i want to see the tavern keeper
+[/INST] Game Master: The tavern keeper, a burly man with a thick beard and a friendly grin, stands behind the bar polishing a tankard. He looks up as you approach. "Ah, welcome, travelers! What can I do for ye?" he asks, his voice warm and inviting. His eyes flick between you, noting your travel-worn gear. "Looking for a room, or just a drink to warm yer bones?"
+
+sebbo: i want a drink
+bobby: i want a drink
+[/INST] Game Master: The tavern keeper nods and turns to a shelf behind him, retrieving two mugs. He fills them with frothy ale from a large wooden barrel, then slides them across the bar to you. "On the house for new faces," he says with a wink. "The local brew—strong enough to put hair on yer chest, but smooth enough to enjoy." He leans in slightly. "Though if ye're looking for something... stronger, I might know a thing or two." His tone drops to a conspiratorial whisper. "But that'd be a private conversation, aye?"
+
+sebbo: what do you know about the local rumors
+bobby: what do you know about the local rumors
+[/INST] Game Master: The tavern keeper's eyes dart around the room before he leans in closer, lowering his voice. "Well, now that ye mention it, there's been some strange goings-on 'round these parts. The old mill outside town's been abandoned for years, but folks swear they've seen lights flickering in the windows at night. And just last week, old Manis the miller's son went missing—last seen heading that way." He pauses, then adds, "Some say it's ghosts, others say bandits. But me? I think there's something darker afoot." He straightens up, wiping the bar with a rag. "But that's just the gossip of a simple tavern keeper. Ye'd do well to ask the town guard if ye're looking for answers."
+
+sebbo: i want to talk to the town guard
+bobby: i want to talk to the town guard
+[/INST] Game Master: The tavern keeper nods approvingly. "A wise choice, lads. The guard post is just down the street, past the baker's shop. You can't miss it—they've got a big iron door and a flag with the town's crest." He gestures toward the door. "Mind the alley cats on yer way out. They're a mischievous lot." As you step outside, the cool evening air greets you, and the cobblestone street is bathed in the warm glow of lanterns. The guard post is indeed easy to spot, its sturdy door standing out among the wooden buildings. A pair of guards in polished armor stand at attention, their eyes sharp as they watch the street.
+
+sebbo: i want to ask them about the missing person
+bobby: i want to ask them about the missing person
+[/INST] Game Master: The guards straighten as you approach, their hands resting on the hilts of their swords. One, a woman with a stern expression, steps forward. "State yer business," she says, her voice firm but not unkind. The other, a younger man with a nervous twitch, eyes you warily. When you mention the missing person, the woman's expression darkens. "Ah, ye must mean young Manis. Aye, he's been missing for near a week now. Last seen near the old mill. We've searched the area, but found nary a trace. If ye're looking to help, we'd be grateful. But be warned—the mill's been cursed since the old miller died. Strange noises, shadows moving where there shouldn't be. We've got orders not to go in without backup." She glances at her companion, who nods grimly.
+
+sebbo: i want to go to the old mill
+bobby: i want to go to the old mill
+[/INST] Game Master: The guards exchange a glance, then the woman sighs. "Very well. But if ye're going in, take this." She reaches into a pouch at her belt and hands you a small, rusted key. "It's the spare to the mill's back door. The main one's been locked for years, and the wood's rotten. Be careful in there—we don't know what ye might find." The younger guard shudders. "And if ye hear strange noises... well, just run. That's what I'd do." The woman elbows him sharply, but he doesn't apologize.
+
+The path to the old mill is overgrown, the cobblestones cracked and uneven. The mill itself looms ahead, its wooden walls sagging, its windows dark and empty. The air is thick with the scent of damp earth and something else—something metallic. The wind howls through the broken shutters, and the door creaks ominously as you approach. The key fits smoothly into the lock, and with a turn, the door groans open, revealing a yawning darkness within.
