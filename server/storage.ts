@@ -112,7 +112,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCharacter(insertCharacter: InsertCharacter): Promise<Character> {
-    const [character] = await this.database.insert(characters).values(insertCharacter).returning();
+    const [character] = await this.database.insert(characters).values(insertCharacter as any).returning();
     return character;
   }
 
@@ -147,7 +147,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
-    const [message] = await this.database.insert(messages).values(insertMessage).returning();
+    const [message] = await this.database.insert(messages).values(insertMessage as any).returning();
     return message;
   }
 

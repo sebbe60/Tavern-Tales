@@ -46,18 +46,17 @@ export const statsSchema = z.object({
   int: z.number().default(1),
   wis: z.number().default(1),
   cha: z.number().default(1),
-  // Additional stats
-  luck: z.number().default(1).optional(),
-  per: z.number().default(1).optional(), // Perception as separate stat
-  agi: z.number().default(1).optional(), // Agility
-  end: z.number().default(1).optional(), // Endurance
+  luck: z.number().optional(),
+  per: z.number().optional(),
+  agi: z.number().optional(),
+  end: z.number().optional(),
 });
 
 // Status effect schema - for conditions like poisoned, on fire, etc.
 export const statusEffectSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
-  duration: z.number().optional(), // turns remaining, null = permanent until removed
+  duration: z.number().optional(),
   severity: z.enum(["minor", "moderate", "severe"]).optional(),
 });
 
@@ -65,10 +64,10 @@ export const statusEffectSchema = z.object({
 export const abilitySchema = z.object({
   name: z.string(),
   description: z.string(),
-  cooldown: z.number(), // total cooldown in turns
-  currentCooldown: z.number().default(0), // remaining cooldown (0 = ready)
+  cooldown: z.number(),
+  currentCooldown: z.number().default(0),
   power: z.enum(["weak", "moderate", "strong", "ultimate"]).optional(),
-  type: z.string().optional(), // "attack", "heal", "buff", "debuff", etc.
+  type: z.string().optional(),
 });
 
 // Character Sheets
@@ -91,11 +90,11 @@ export const characters = pgTable("characters", {
   // Stats (flexible, no limits)
   stats: jsonb("stats").notNull().$type<z.infer<typeof statsSchema>>(),
   
-  // Dynamic status effects (managed by AI)
-  statusEffects: jsonb("status_effects").$type<z.infer<typeof statusEffectSchema>[]>().default([]),
+  // Dynamic status effects (managed by AI) - defaults to empty array
+  statusEffects: jsonb("status_effects").$type<z.infer<typeof statusEffectSchema>[]>(),
   
-  // Dynamic abilities/skills with cooldowns (created by AI)
-  abilities: jsonb("abilities").$type<z.infer<typeof abilitySchema>[]>().default([]),
+  // Dynamic abilities/skills with cooldowns (created by AI) - defaults to empty array
+  abilities: jsonb("abilities").$type<z.infer<typeof abilitySchema>[]>(),
   
   // Inventory (managed by AI)
   inventory: text("inventory").array().notNull().default(sql`ARRAY[]::text[]`),
@@ -105,11 +104,19 @@ export const characters = pgTable("characters", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Custom insert schema that makes optional fields truly optional
 export const insertCharacterSchema = createInsertSchema(characters).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  statusEffects: z.array(statusEffectSchema).optional().default([]),
+  abilities: z.array(abilitySchema).optional().default([]),
+  xp: z.number().optional().default(0),
+  xpToNextLevel: z.number().optional().default(100),
+  level: z.number().optional().default(1),
 });
+
 export type InsertCharacter = z.infer<typeof insertCharacterSchema>;
 export type Character = typeof characters.$inferSelect;
 
@@ -122,7 +129,6 @@ export const messages = pgTable("messages", {
   author: text("author").notNull(),
   content: text("content").notNull(),
   diceRoll: jsonb("dice_roll").$type<{ dice: string; result: number; rolls: number[] }>(),
-  // Character updates embedded in AI messages
   characterUpdates: jsonb("character_updates").$type<Record<string, any>>(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });

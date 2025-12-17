@@ -8,14 +8,24 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Minus, Sparkles } from "lucide-react";
 import generatedBg from "@assets/generated_images/fantasy_tavern_interior_background_blurred.png";
 
-const POINT_BUY_TOTAL = 27;
-const BASE_STAT = 8;
-const MIN_STAT = 8;
-const MAX_STAT = 15;
+// Stats start at 1, no limits
+const BASE_STAT = 1;
 
-const STAT_COSTS: Record<number, number> = {
-  8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9
+// All available stats - core D&D stats plus extras
+const ALL_STATS = {
+  str: { name: "Strength", description: "Physical power and melee combat" },
+  dex: { name: "Dexterity", description: "Agility, reflexes, and finesse" },
+  con: { name: "Constitution", description: "Health, stamina, and endurance" },
+  int: { name: "Intelligence", description: "Reasoning and magical ability" },
+  wis: { name: "Wisdom", description: "Perception and intuition" },
+  cha: { name: "Charisma", description: "Force of personality" },
+  luck: { name: "Luck", description: "Fortune and chance" },
+  per: { name: "Perception", description: "Awareness and senses" },
+  agi: { name: "Agility", description: "Speed and nimbleness" },
+  end: { name: "Endurance", description: "Stamina and resilience" },
 };
+
+type StatKey = keyof typeof ALL_STATS;
 
 export default function CharacterCreation() {
   const [, setLocation] = useLocation();
@@ -26,8 +36,11 @@ export default function CharacterCreation() {
   const [name, setName] = useState("");
   const [race, setRace] = useState("");
   const [charClass, setCharClass] = useState("");
-  const [stats, setStats] = useState({
-    str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8
+  
+  // All stats start at 1, no limits
+  const [stats, setStats] = useState<Record<StatKey, number>>({
+    str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1,
+    luck: 1, per: 1, agi: 1, end: 1
   });
 
   useEffect(() => {
@@ -55,12 +68,10 @@ export default function CharacterCreation() {
       const state = await response.json();
       setGameState(state);
       
-      // Check if character already exists
       const myPlayer = state.players.find((p: any) => p.sessionToken === sessionToken);
       if (myPlayer) {
         const myCharacter = state.characters.find((c: any) => c.playerId === myPlayer.id);
         if (myCharacter) {
-          // Character already created, go to game
           setLocation("/game");
         }
       }
@@ -73,19 +84,10 @@ export default function CharacterCreation() {
     }
   };
 
-  const pointsSpent = Object.values(stats).reduce((sum, val) => sum + (STAT_COSTS[val] || 0), 0);
-  const pointsRemaining = POINT_BUY_TOTAL - pointsSpent;
-
-  const adjustStat = (stat: keyof typeof stats, delta: number) => {
+  const adjustStat = (stat: StatKey, delta: number) => {
     const newValue = stats[stat] + delta;
-    if (newValue < MIN_STAT || newValue > MAX_STAT) return;
-    
-    const newStats = { ...stats, [stat]: newValue };
-    const newCost = Object.values(newStats).reduce((sum, val) => sum + (STAT_COSTS[val] || 0), 0);
-    
-    if (newCost <= POINT_BUY_TOTAL) {
-      setStats(newStats);
-    }
+    if (newValue < 1) return; // Minimum is 1
+    setStats(prev => ({ ...prev, [stat]: newValue }));
   };
 
   const createCharacter = async () => {
@@ -98,26 +100,20 @@ export default function CharacterCreation() {
       return;
     }
 
-    if (pointsRemaining !== 0) {
-      toast({
-        title: "Points Remaining",
-        description: `You have ${pointsRemaining} points left to assign`,
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
     try {
       const gameId = localStorage.getItem("gameId");
       const sessionToken = localStorage.getItem("sessionToken");
       
-      // Get player ID
       const stateResponse = await fetch(`/api/games/${gameId}/state`);
       const state = await stateResponse.json();
       const myPlayer = state.players.find((p: any) => p.sessionToken === sessionToken);
       
       if (!myPlayer) throw new Error("Player not found");
+
+      // Calculate HP based on CON and class, MP based on INT
+      const baseHp = 10 + stats.con * 2;
+      const baseMp = 5 + stats.int * 2;
 
       const response = await fetch("/api/characters", {
         method: "POST",
@@ -128,11 +124,25 @@ export default function CharacterCreation() {
           race: race.trim(),
           class: charClass.trim(),
           level: 1,
-          hp: { current: 10 + stats.con, max: 10 + stats.con },
-          mp: { current: 10 + stats.int, max: 10 + stats.int },
-          stats,
-          inventory: ["Adventurer's Pack", "50 Gold Coins"],
-          status: "Healthy",
+          xp: 0,
+          xpToNextLevel: 100,
+          hp: { current: baseHp, max: baseHp },
+          mp: { current: baseMp, max: baseMp },
+          stats: {
+            str: stats.str,
+            dex: stats.dex,
+            con: stats.con,
+            int: stats.int,
+            wis: stats.wis,
+            cha: stats.cha,
+            luck: stats.luck,
+            per: stats.per,
+            agi: stats.agi,
+            end: stats.end,
+          },
+          statusEffects: [],
+          abilities: [],
+          inventory: [],
         }),
       });
 
@@ -143,7 +153,6 @@ export default function CharacterCreation() {
         description: `${name} is ready for adventure`,
       });
 
-      // Go to game
       setTimeout(() => setLocation("/game"), 1000);
     } catch (error: any) {
       toast({
@@ -156,24 +165,16 @@ export default function CharacterCreation() {
     }
   };
 
-  const statNames: Record<keyof typeof stats, string> = {
-    str: "Strength",
-    dex: "Dexterity",
-    con: "Constitution",
-    int: "Intelligence",
-    wis: "Wisdom",
-    cha: "Charisma"
-  };
+  const totalPoints = Object.values(stats).reduce((sum, val) => sum + val, 0);
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-hidden font-serif relative flex items-center justify-center p-4">
-      {/* Background */}
       <div 
         className="fixed inset-0 z-0 bg-cover bg-center pointer-events-none opacity-40 blur-sm scale-110"
         style={{ backgroundImage: `url(${generatedBg})` }}
       />
 
-      <div className="relative z-10 w-full max-w-4xl">
+      <div className="relative z-10 w-full max-w-5xl">
         <div className="text-center mb-8">
           <h1 className="text-5xl font-fantasy text-primary tracking-wider drop-shadow-lg mb-2">
             Create Your Hero
@@ -226,11 +227,20 @@ export default function CharacterCreation() {
               </div>
 
               <div className="bg-primary/10 p-4 rounded-lg border border-primary/20 text-center">
-                <div className="text-sm text-muted-foreground uppercase tracking-widest">Points Remaining</div>
-                <div className="text-4xl font-fantasy text-primary mt-1" data-testid="text-points-remaining">
-                  {pointsRemaining}
+                <div className="text-sm text-muted-foreground uppercase tracking-widest">Total Stat Points</div>
+                <div className="text-4xl font-fantasy text-primary mt-1" data-testid="text-total-points">
+                  {totalPoints}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">of {POINT_BUY_TOTAL} total</div>
+                <div className="text-xs text-muted-foreground mt-1">No limits - assign freely!</div>
+              </div>
+
+              <div className="bg-black/20 p-4 rounded-lg border border-white/10 text-sm text-muted-foreground space-y-2">
+                <p className="font-fantasy text-primary">How it works:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>All stats start at 1</li>
+                  <li>No point limits - customize freely</li>
+                  <li>The AI Game Master will adjust your HP, MP, XP, inventory, and skills during the adventure!</li>
+                </ul>
               </div>
             </div>
 
@@ -238,15 +248,15 @@ export default function CharacterCreation() {
             <div className="space-y-6">
               <h2 className="text-2xl font-fantasy text-primary border-b border-primary/20 pb-2">Ability Scores</h2>
               
-              <div className="space-y-3">
-                {(Object.keys(stats) as Array<keyof typeof stats>).map((stat) => (
+              <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+                {(Object.keys(ALL_STATS) as StatKey[]).map((stat) => (
                   <div key={stat} className="flex items-center justify-between bg-black/20 p-3 rounded-lg border border-white/10">
                     <div className="flex-1">
                       <div className="text-sm font-fantasy uppercase tracking-wider text-foreground">
-                        {statNames[stat]}
+                        {ALL_STATS[stat].name}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Cost: {STAT_COSTS[stats[stat]]} pts
+                        {ALL_STATS[stat].description}
                       </div>
                     </div>
                     
@@ -255,7 +265,7 @@ export default function CharacterCreation() {
                         size="icon"
                         variant="outline"
                         onClick={() => adjustStat(stat, -1)}
-                        disabled={stats[stat] <= MIN_STAT}
+                        disabled={stats[stat] <= 1}
                         className="h-8 w-8 rounded-full border-primary/30"
                         data-testid={`button-decrease-${stat}`}
                       >
@@ -270,7 +280,6 @@ export default function CharacterCreation() {
                         size="icon"
                         variant="outline"
                         onClick={() => adjustStat(stat, 1)}
-                        disabled={stats[stat] >= MAX_STAT || pointsRemaining < (STAT_COSTS[stats[stat] + 1] - STAT_COSTS[stats[stat]])}
                         className="h-8 w-8 rounded-full border-primary/30"
                         data-testid={`button-increase-${stat}`}
                       >
@@ -286,7 +295,7 @@ export default function CharacterCreation() {
           <div className="mt-8 pt-6 border-t border-white/10">
             <Button
               onClick={createCharacter}
-              disabled={loading || !name.trim() || !race.trim() || !charClass.trim() || pointsRemaining !== 0}
+              disabled={loading || !name.trim() || !race.trim() || !charClass.trim()}
               className="w-full h-14 text-lg font-fantasy bg-primary hover:bg-primary/90"
               data-testid="button-create-character"
             >

@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { Character } from "@/lib/game-types";
+import { Character, StatusEffect, Ability } from "@/lib/game-types";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Shield, Zap, Backpack, Heart, ChevronDown, Sword, Book, CheckCircle2, Dices } from "lucide-react";
+import { Shield, Zap, Backpack, Heart, ChevronDown, Sword, Star, Clock, Flame, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CharacterPanelProps {
@@ -15,10 +15,8 @@ interface CharacterPanelProps {
 export function CharacterPanel({ character, side, isCurrentUser }: CharacterPanelProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     stats: true,
-    skills: false,
-    saves: false,
-    proficiencies: false,
-    spells: false,
+    abilities: true,
+    statusEffects: true,
     inventory: true,
   });
 
@@ -26,29 +24,19 @@ export function CharacterPanel({ character, side, isCurrentUser }: CharacterPane
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  // Calculate ability modifiers
   const getModifier = (stat: number) => {
     const mod = Math.floor((stat - 10) / 2);
     return mod >= 0 ? `+${mod}` : `${mod}`;
   };
 
-  // D&D Skills mapped to ability scores
-  const skillAbilities: Record<string, keyof typeof character.stats> = {
-    acrobatics: "dex", animalHandling: "wis", arcana: "int", athletics: "str",
-    deception: "cha", history: "int", insight: "wis", intimidation: "cha",
-    investigation: "int", medicine: "wis", nature: "int", perception: "wis",
-    performance: "cha", persuasion: "cha", religion: "int", sleightOfHand: "dex",
-    stealth: "dex", survival: "wis"
+  const statNames: Record<string, string> = {
+    str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA",
+    luck: "LCK", per: "PER", agi: "AGI", end: "END"
   };
 
-  const skillNames: Record<string, string> = {
-    acrobatics: "Acrobatics", animalHandling: "Animal Handling", arcana: "Arcana",
-    athletics: "Athletics", deception: "Deception", history: "History",
-    insight: "Insight", intimidation: "Intimidation", investigation: "Investigation",
-    medicine: "Medicine", nature: "Nature", perception: "Perception",
-    performance: "Performance", persuasion: "Persuasion", religion: "Religion",
-    sleightOfHand: "Sleight of Hand", stealth: "Stealth", survival: "Survival"
-  };
+  const xpProgress = character.xpToNextLevel > 0 
+    ? (character.xp / character.xpToNextLevel) * 100 
+    : 0;
 
   return (
     <div 
@@ -58,7 +46,6 @@ export function CharacterPanel({ character, side, isCurrentUser }: CharacterPane
         side === "left" ? "rounded-r-xl border-l-0" : "rounded-l-xl border-r-0"
       )}
     >
-      {/* Background Texture Overlay */}
       <div className="absolute inset-0 bg-[url('@assets/generated_images/aged_parchment_paper_texture.png')] opacity-10 pointer-events-none mix-blend-overlay" />
 
       {/* Header / Avatar Section */}
@@ -82,8 +69,9 @@ export function CharacterPanel({ character, side, isCurrentUser }: CharacterPane
         )}
       </div>
 
-      {/* Vitals */}
-      <div className="p-4 space-y-4 bg-black/10">
+      {/* Vitals: HP, MP, XP */}
+      <div className="p-4 space-y-3 bg-black/10">
+        {/* HP */}
         <div className="space-y-1">
           <div className="flex justify-between text-xs uppercase tracking-widest text-muted-foreground">
             <span className="flex items-center gap-1"><Heart className="w-3 h-3 text-red-500" /> Health</span>
@@ -91,12 +79,23 @@ export function CharacterPanel({ character, side, isCurrentUser }: CharacterPane
           </div>
           <Progress value={(character.hp.current / character.hp.max) * 100} className="h-2 bg-black/40 [&>div]:bg-red-600/80" />
         </div>
+        
+        {/* MP */}
         <div className="space-y-1">
           <div className="flex justify-between text-xs uppercase tracking-widest text-muted-foreground">
             <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-blue-400" /> Mana</span>
             <span>{character.mp.current} / {character.mp.max}</span>
           </div>
           <Progress value={(character.mp.current / character.mp.max) * 100} className="h-2 bg-black/40 [&>div]:bg-blue-600/80" />
+        </div>
+        
+        {/* XP Bar */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs uppercase tracking-widest text-muted-foreground">
+            <span className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-400" /> Experience</span>
+            <span>{character.xp} / {character.xpToNextLevel}</span>
+          </div>
+          <Progress value={xpProgress} className="h-2 bg-black/40 [&>div]:bg-yellow-500/80" />
         </div>
       </div>
 
@@ -111,140 +110,150 @@ export function CharacterPanel({ character, side, isCurrentUser }: CharacterPane
               <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", openSections.stats && "rotate-180")} />
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {Object.entries(character.stats).map(([stat, value]) => (
-                  <div key={stat} className="bg-black/20 p-2 rounded border border-white/5 hover:border-primary/30 transition-colors">
-                    <div className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">{stat}</div>
-                    <div className="text-lg font-fantasy text-foreground">{value}</div>
-                    <div className="text-xs text-primary/70">{getModifier(value)}</div>
+              <div className="grid grid-cols-5 gap-1 text-center">
+                {Object.entries(character.stats).filter(([_, v]) => v !== undefined).map(([stat, value]) => (
+                  <div key={stat} className="bg-black/20 p-1.5 rounded border border-white/5 hover:border-primary/30 transition-colors">
+                    <div className="text-[9px] uppercase text-muted-foreground font-bold tracking-wider">{statNames[stat] || stat.toUpperCase()}</div>
+                    <div className="text-sm font-fantasy text-foreground">{value}</div>
+                    <div className="text-[10px] text-primary/70">{getModifier(value as number)}</div>
                   </div>
                 ))}
               </div>
             </CollapsibleContent>
           </Collapsible>
 
-          {/* Saving Throws */}
-          {character.savingThrows && (
-            <Collapsible open={openSections.saves} onOpenChange={() => toggleSection("saves")}>
-              <CollapsibleTrigger className="w-full flex items-center justify-between p-2 bg-black/20 rounded hover:bg-black/30 transition-colors border border-white/5">
-                <span className="text-sm font-fantasy text-primary/90 flex items-center gap-2">
-                  <Shield className="w-4 h-4" /> Saving Throws
-                </span>
-                <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", openSections.saves && "rotate-180")} />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2 space-y-1">
-                {Object.entries(character.savingThrows).map(([stat, proficient]) => {
-                  const value = character.stats[stat as keyof typeof character.stats];
-                  const modifier = Math.floor((value - 10) / 2) + (proficient ? 2 : 0);
-                  return (
-                    <div key={stat} className="flex items-center justify-between text-xs bg-black/10 p-2 rounded border border-white/5">
-                      <span className="flex items-center gap-2">
-                        {proficient && <CheckCircle2 className="w-3 h-3 text-primary" />}
-                        <span className="uppercase text-muted-foreground">{stat}</span>
-                      </span>
-                      <span className="font-mono text-foreground">{modifier >= 0 ? '+' : ''}{modifier}</span>
-                    </div>
-                  );
-                })}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-
-          {/* Skills */}
-          {character.skills && (
-            <Collapsible open={openSections.skills} onOpenChange={() => toggleSection("skills")}>
-              <CollapsibleTrigger className="w-full flex items-center justify-between p-2 bg-black/20 rounded hover:bg-black/30 transition-colors border border-white/5">
-                <span className="text-sm font-fantasy text-primary/90 flex items-center gap-2">
-                  <Dices className="w-4 h-4" /> Skills
-                </span>
-                <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", openSections.skills && "rotate-180")} />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2 space-y-1 max-h-64 overflow-y-auto">
-                {Object.entries(character.skills).map(([skill, bonus]) => {
-                  const ability = skillAbilities[skill];
-                  return (
-                    <div key={skill} className="flex items-center justify-between text-xs bg-black/10 p-1.5 rounded border border-white/5">
-                      <span className="text-muted-foreground text-[11px]">{skillNames[skill] || skill}</span>
-                      <span className="font-mono text-foreground text-xs">{bonus >= 0 ? '+' : ''}{bonus}</span>
-                    </div>
-                  );
-                })}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-
-          {/* Proficiencies */}
-          {character.proficiencies && character.proficiencies.length > 0 && (
-            <Collapsible open={openSections.proficiencies} onOpenChange={() => toggleSection("proficiencies")}>
-              <CollapsibleTrigger className="w-full flex items-center justify-between p-2 bg-black/20 rounded hover:bg-black/30 transition-colors border border-white/5">
-                <span className="text-sm font-fantasy text-primary/90 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4" /> Proficiencies
-                </span>
-                <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", openSections.proficiencies && "rotate-180")} />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2">
-                <div className="flex flex-wrap gap-1">
-                  {character.proficiencies.map((prof, i) => (
-                    <span key={i} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20">
-                      {prof}
-                    </span>
-                  ))}
+          {/* Skills/Abilities with Cooldowns */}
+          <Collapsible open={openSections.abilities} onOpenChange={() => toggleSection("abilities")}>
+            <CollapsibleTrigger className="w-full flex items-center justify-between p-2 bg-black/20 rounded hover:bg-black/30 transition-colors border border-white/5">
+              <span className="text-sm font-fantasy text-primary/90 flex items-center gap-2">
+                <Sparkles className="w-4 h-4" /> Skills & Abilities
+                {character.abilities && character.abilities.length > 0 && (
+                  <span className="text-xs bg-primary/20 px-1.5 py-0.5 rounded">{character.abilities.length}</span>
+                )}
+              </span>
+              <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", openSections.abilities && "rotate-180")} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+              {(!character.abilities || character.abilities.length === 0) ? (
+                <div className="text-xs text-muted-foreground italic text-center p-4 bg-black/10 rounded border border-white/5">
+                  No abilities yet. The AI Game Master will grant you skills as you adventure!
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-
-          {/* Spells */}
-          {character.spells && character.spells.length > 0 && (
-            <Collapsible open={openSections.spells} onOpenChange={() => toggleSection("spells")}>
-              <CollapsibleTrigger className="w-full flex items-center justify-between p-2 bg-black/20 rounded hover:bg-black/30 transition-colors border border-white/5">
-                <span className="text-sm font-fantasy text-primary/90 flex items-center gap-2">
-                  <Book className="w-4 h-4" /> Spells
-                </span>
-                <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", openSections.spells && "rotate-180")} />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2 space-y-2 max-h-64 overflow-y-auto">
-                {character.spells.map((spell, i) => (
-                  <div key={i} className="bg-black/10 p-2 rounded border border-white/5 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-fantasy text-foreground">{spell.name}</span>
-                      <span className="text-xs text-primary">Lvl {spell.level}</span>
+              ) : (
+                character.abilities.map((ability: Ability, i: number) => {
+                  const isReady = ability.currentCooldown === 0;
+                  return (
+                    <div 
+                      key={i} 
+                      className={cn(
+                        "bg-black/10 p-2 rounded border space-y-1",
+                        isReady ? "border-primary/30" : "border-white/5 opacity-70"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-fantasy text-foreground">{ability.name}</span>
+                        <div className="flex items-center gap-1">
+                          {ability.power && (
+                            <span className={cn(
+                              "text-[10px] px-1.5 py-0.5 rounded uppercase",
+                              ability.power === "weak" && "bg-green-900/30 text-green-400",
+                              ability.power === "moderate" && "bg-yellow-900/30 text-yellow-400",
+                              ability.power === "strong" && "bg-orange-900/30 text-orange-400",
+                              ability.power === "ultimate" && "bg-purple-900/30 text-purple-400",
+                            )}>
+                              {ability.power}
+                            </span>
+                          )}
+                          <span className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1",
+                            isReady ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
+                          )}>
+                            <Clock className="w-3 h-3" />
+                            {isReady ? "Ready" : `${ability.currentCooldown} turns`}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-foreground/70 italic">{ability.description}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        Cooldown: {ability.cooldown} turns
+                      </div>
                     </div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{spell.school}</div>
-                    <div className="text-xs text-foreground/70 italic leading-relaxed">{spell.description}</div>
-                  </div>
-                ))}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
+                  );
+                })
+              )}
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Status Effects */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-fantasy text-primary/80 flex items-center gap-2 p-2">
-              <Shield className="w-4 h-4" /> Status
-            </h3>
-            <div className="text-sm font-serif italic text-muted-foreground bg-black/10 p-2 rounded border border-white/5">
-              {character.status || "Healthy"}
-            </div>
-          </div>
+          <Collapsible open={openSections.statusEffects} onOpenChange={() => toggleSection("statusEffects")}>
+            <CollapsibleTrigger className="w-full flex items-center justify-between p-2 bg-black/20 rounded hover:bg-black/30 transition-colors border border-white/5">
+              <span className="text-sm font-fantasy text-primary/90 flex items-center gap-2">
+                <Flame className="w-4 h-4" /> Status Effects
+                {character.statusEffects && character.statusEffects.length > 0 && (
+                  <span className="text-xs bg-red-500/20 px-1.5 py-0.5 rounded text-red-400">{character.statusEffects.length}</span>
+                )}
+              </span>
+              <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", openSections.statusEffects && "rotate-180")} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 space-y-1">
+              {(!character.statusEffects || character.statusEffects.length === 0) ? (
+                <div className="text-xs text-green-400 italic text-center p-3 bg-green-900/10 rounded border border-green-900/20">
+                  No status effects - You're in good condition!
+                </div>
+              ) : (
+                character.statusEffects.map((effect: StatusEffect, i: number) => (
+                  <div 
+                    key={i} 
+                    className={cn(
+                      "flex items-center justify-between text-xs p-2 rounded border",
+                      effect.severity === "minor" && "bg-yellow-900/10 border-yellow-900/20 text-yellow-400",
+                      effect.severity === "moderate" && "bg-orange-900/10 border-orange-900/20 text-orange-400",
+                      effect.severity === "severe" && "bg-red-900/10 border-red-900/20 text-red-400",
+                      !effect.severity && "bg-purple-900/10 border-purple-900/20 text-purple-400"
+                    )}
+                  >
+                    <div>
+                      <span className="font-medium">{effect.name}</span>
+                      {effect.description && (
+                        <p className="text-[10px] text-foreground/60 mt-0.5">{effect.description}</p>
+                      )}
+                    </div>
+                    {effect.duration !== undefined && effect.duration !== null && (
+                      <span className="text-[10px] bg-black/30 px-1.5 py-0.5 rounded">
+                        {effect.duration} turns
+                      </span>
+                    )}
+                  </div>
+                ))
+              )}
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Inventory */}
           <Collapsible open={openSections.inventory} onOpenChange={() => toggleSection("inventory")}>
             <CollapsibleTrigger className="w-full flex items-center justify-between p-2 bg-black/20 rounded hover:bg-black/30 transition-colors border border-white/5">
               <span className="text-sm font-fantasy text-primary/90 flex items-center gap-2">
                 <Backpack className="w-4 h-4" /> Inventory
+                {character.inventory && character.inventory.length > 0 && (
+                  <span className="text-xs bg-primary/20 px-1.5 py-0.5 rounded">{character.inventory.length}</span>
+                )}
               </span>
               <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", openSections.inventory && "rotate-180")} />
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2">
-              <ul className="space-y-1">
-                {character.inventory.map((item, i) => (
-                  <li key={i} className="text-sm font-serif text-foreground/80 flex items-center gap-2 p-1 hover:bg-white/5 rounded cursor-help transition-colors">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent/50" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
+              {(!character.inventory || character.inventory.length === 0) ? (
+                <div className="text-xs text-muted-foreground italic text-center p-4 bg-black/10 rounded border border-white/5">
+                  Your pack is empty. Find items during your adventure!
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {character.inventory.map((item, i) => (
+                    <li key={i} className="text-sm font-serif text-foreground/80 flex items-center gap-2 p-1 hover:bg-white/5 rounded cursor-help transition-colors">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent/50" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CollapsibleContent>
           </Collapsible>
         </div>
