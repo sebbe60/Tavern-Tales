@@ -1,38 +1,69 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { Message, TurnPhase } from "@/lib/game-types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Sparkles, User, Bot, Users } from "lucide-react";
+import { Send, Sparkles, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+
+// AI Game Master avatar
+const GM_AVATAR = "https://static.wikia.nocookie.net/hearthstone_gamepedia/images/0/05/Medal_ranked_1.png/revision/latest?cb=20140426192156";
 
 interface ChatAreaProps {
   messages: Message[];
   onSendMessage: (content: string) => void;
   turnPhase: TurnPhase;
-  pendingPlayers: number; // How many players still need to act
+  pendingPlayers: number;
   currentPlayerName: string;
+  playerAvatars?: Record<string, string | null>; // Map of author name to avatar URL
 }
 
-export function ChatArea({ messages, onSendMessage, turnPhase, pendingPlayers, currentPlayerName }: ChatAreaProps) {
+export function ChatArea({ messages, onSendMessage, turnPhase, pendingPlayers, currentPlayerName, playerAvatars = {} }: ChatAreaProps) {
   const [input, setInput] = React.useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const lastMessageCount = useRef(messages.length);
 
-  // Auto-scroll to bottom
-  useEffect(() => {
+  // Track if user is scrolling (not at bottom)
+  const handleScroll = () => {
     if (scrollRef.current) {
+      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+        setIsUserScrolling(!isAtBottom);
+      }
+    }
+  };
+
+  // Only auto-scroll when new messages arrive AND user isn't scrolling
+  useEffect(() => {
+    const hasNewMessages = messages.length > lastMessageCount.current;
+    lastMessageCount.current = messages.length;
+    
+    if (scrollRef.current && hasNewMessages && !isUserScrolling) {
       const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-  }, [messages]);
+  }, [messages, isUserScrolling]);
+
+  // Add scroll listener
+  useEffect(() => {
+    const scrollContainer = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
 
   const handleSend = () => {
     if (!input.trim()) return;
     onSendMessage(input);
     setInput("");
+    setIsUserScrolling(false); // Reset so we scroll to the new message
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -42,12 +73,15 @@ export function ChatArea({ messages, onSendMessage, turnPhase, pendingPlayers, c
     }
   };
 
+  const getPlayerAvatar = (authorName: string): string | null => {
+    return playerAvatars[authorName] || null;
+  };
+
   return (
     <div className="flex flex-col h-full bg-black/60 backdrop-blur-md rounded-xl border border-white/10 overflow-hidden shadow-2xl relative">
-       {/* Background decorative elements */}
        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/80 to-transparent pointer-events-none z-10" />
        
-      {/* Header Stats - Word Count & Turn Indicator */}
+      {/* Header Stats */}
       <div className="absolute top-0 inset-x-0 z-20 p-4 flex justify-between items-start bg-gradient-to-b from-black/90 via-black/50 to-transparent">
         <div className="flex gap-4 text-xs font-mono text-muted-foreground">
           <div className="bg-black/40 px-3 py-1 rounded-full border border-white/10 backdrop-blur-sm">
@@ -71,6 +105,22 @@ export function ChatArea({ messages, onSendMessage, turnPhase, pendingPlayers, c
         </div>
       </div>
 
+      {/* Scroll to bottom indicator when user is scrolling */}
+      {isUserScrolling && (
+        <button
+          onClick={() => {
+            const scrollContainer = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+            if (scrollContainer) {
+              scrollContainer.scrollTop = scrollContainer.scrollHeight;
+              setIsUserScrolling(false);
+            }
+          }}
+          className="absolute bottom-32 left-1/2 -translate-x-1/2 z-30 bg-primary/90 text-primary-foreground px-4 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-primary transition-all animate-bounce"
+        >
+          ↓ New messages
+        </button>
+      )}
+
       {/* Messages Area */}
       <ScrollArea ref={scrollRef} className="flex-1 p-6 pt-20">
         <div className="space-y-8 max-w-3xl mx-auto pb-6">
@@ -85,10 +135,14 @@ export function ChatArea({ messages, onSendMessage, turnPhase, pendingPlayers, c
                   msg.role === "assistant" ? "justify-start" : "justify-end"
                 )}
               >
-                {/* Avatar for Assistant */}
+                {/* Avatar for Game Master */}
                 {msg.role === "assistant" && (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-700 to-amber-900 border-2 border-amber-500/50 flex items-center justify-center shrink-0 shadow-lg mt-1">
-                    <Bot className="w-6 h-6 text-amber-100" />
+                  <div className="w-12 h-12 shrink-0 mt-1">
+                    <img 
+                      src={GM_AVATAR} 
+                      alt="Game Master"
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                 )}
 
@@ -96,7 +150,7 @@ export function ChatArea({ messages, onSendMessage, turnPhase, pendingPlayers, c
                   "relative max-w-[85%] rounded-2xl p-5 shadow-lg backdrop-blur-sm border",
                   msg.role === "assistant" 
                     ? "bg-black/40 border-amber-900/30 text-amber-50 rounded-tl-none" 
-                    : "bg-primary/10 border-primary/20 text-foreground rounded-tr-none ml-12"
+                    : "bg-primary/10 border-primary/20 text-foreground rounded-tr-none"
                 )}>
                   <div className="flex items-baseline justify-between gap-4 mb-2 border-b border-white/5 pb-2">
                     <span className={cn(
@@ -118,10 +172,18 @@ export function ChatArea({ messages, onSendMessage, turnPhase, pendingPlayers, c
                   </div>
                 </div>
 
-                {/* Avatar for User */}
+                {/* Avatar for Player */}
                 {msg.role !== "assistant" && (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-900 to-slate-900 border-2 border-blue-500/30 flex items-center justify-center shrink-0 shadow-lg mt-1">
-                    <User className="w-5 h-5 text-blue-200" />
+                  <div className="w-10 h-10 rounded-full border-2 border-blue-500/30 flex items-center justify-center shrink-0 shadow-lg mt-1 overflow-hidden bg-gradient-to-br from-blue-900 to-slate-900">
+                    {getPlayerAvatar(msg.author) ? (
+                      <img 
+                        src={getPlayerAvatar(msg.author)!} 
+                        alt={msg.author}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-5 h-5 text-blue-200" />
+                    )}
                   </div>
                 )}
               </motion.div>

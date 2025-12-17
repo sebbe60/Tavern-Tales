@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Share2, Copy, Dices } from "lucide-react";
+import { Settings, Share2, Copy, Dices, Camera, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { saveChatHistory, loadChatHistory } from "@/lib/storage";
 import generatedBg from "@assets/generated_images/fantasy_tavern_interior_background_blurred.png";
@@ -27,6 +27,8 @@ export default function GamePage() {
   const [showShare, setShowShare] = useState(false);
   const [showDice, setShowDice] = useState(false);
   const [diceInput, setDiceInput] = useState("1d20");
+  const [showAvatarUpload, setShowAvatarUpload] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState("");
   
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
 
@@ -204,6 +206,40 @@ export default function GamePage() {
     });
   };
 
+  const updateAvatar = async () => {
+    if (!myCharacter || !avatarUrl.trim()) return;
+    
+    try {
+      const response = await fetch(`/api/characters/${myCharacter.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatar: avatarUrl.trim() }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to update avatar");
+      
+      toast({
+        title: "Avatar Updated!",
+        description: "Your new avatar is now visible to everyone",
+      });
+      
+      setShowAvatarUpload(false);
+      setAvatarUrl("");
+      loadGameState();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update avatar",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Build player avatars map for chat
+  const playerAvatars: Record<string, string | null> = {};
+  if (myCharacter) playerAvatars[myCharacter.name] = myCharacter.avatar || null;
+  if (otherCharacter) playerAvatars[otherCharacter.name] = otherCharacter.avatar || null;
+
   if (!gameState || !myCharacter) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -233,7 +269,7 @@ export default function GamePage() {
         
         {/* Left Panel - My Character */}
         <div className="hidden lg:block h-full">
-           <CharacterPanel character={myCharacter} side="left" isCurrentUser={true} />
+           <CharacterPanel character={myCharacter} side="left" isCurrentUser={true} onAvatarClick={() => setShowAvatarUpload(true)} />
         </div>
 
         {/* Center - Chat */}
@@ -244,6 +280,7 @@ export default function GamePage() {
              turnPhase={turnPhase}
              pendingPlayers={pendingCount}
              currentPlayerName={myCharacter.name}
+             playerAvatars={playerAvatars}
            />
         </div>
 
@@ -305,6 +342,49 @@ export default function GamePage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Avatar Upload Dialog */}
+      <Dialog open={showAvatarUpload} onOpenChange={setShowAvatarUpload}>
+        <DialogContent className="bg-card/95 border-primary/20 text-foreground backdrop-blur-xl">
+          <DialogHeader>
+            <DialogTitle className="font-fantasy text-2xl text-primary">Change Your Avatar</DialogTitle>
+            <DialogDescription>
+              Enter a URL to an image to use as your character's avatar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="flex justify-center">
+              <div className="w-24 h-24 rounded-full border-4 border-primary/50 overflow-hidden bg-black/40">
+                <img 
+                  src={avatarUrl || myCharacter?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(myCharacter?.name || "")}&background=random`}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(myCharacter?.name || "")}&background=random`;
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="avatarUrl" className="font-fantasy">Image URL</Label>
+              <Input
+                id="avatarUrl"
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+                placeholder="https://example.com/my-avatar.png"
+                className="bg-black/20 border-white/10 mt-2"
+                data-testid="input-avatar-url"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Tip: Use image hosting services like Imgur, Discord CDN, or any direct image URL.
+            </p>
+            <Button onClick={updateAvatar} disabled={!avatarUrl.trim()} className="w-full bg-primary font-fantasy" data-testid="button-save-avatar">
+              <Camera className="w-4 h-4 mr-2" /> Save Avatar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dice Roller Dialog */}
       <Dialog open={showDice} onOpenChange={setShowDice}>

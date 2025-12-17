@@ -10,9 +10,10 @@ interface CharacterPanelProps {
   character: Character;
   side: "left" | "right";
   isCurrentUser?: boolean;
+  onAvatarClick?: () => void;
 }
 
-export function CharacterPanel({ character, side, isCurrentUser }: CharacterPanelProps) {
+export function CharacterPanel({ character, side, isCurrentUser, onAvatarClick }: CharacterPanelProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     stats: true,
     abilities: true,
@@ -50,12 +51,23 @@ export function CharacterPanel({ character, side, isCurrentUser }: CharacterPane
 
       {/* Header / Avatar Section */}
       <div className="relative p-6 text-center space-y-2 border-b-2 border-border/50">
-        <div className="relative mx-auto w-24 h-24 rounded-full border-4 border-primary/50 shadow-inner overflow-hidden bg-black/40">
+        <div 
+          className={cn(
+            "relative mx-auto w-24 h-24 rounded-full border-4 border-primary/50 shadow-inner overflow-hidden bg-black/40",
+            isCurrentUser && onAvatarClick && "cursor-pointer group/avatar hover:border-primary transition-all"
+          )}
+          onClick={isCurrentUser ? onAvatarClick : undefined}
+        >
            <img 
              src={character.avatar || "https://ui-avatars.com/api/?name=" + encodeURIComponent(character.name) + "&background=random"} 
              alt={character.name}
              className="w-full h-full object-cover"
            />
+           {isCurrentUser && onAvatarClick && (
+             <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+               <span className="text-xs text-white font-bold">Change</span>
+             </div>
+           )}
         </div>
         <div>
           <h2 className="text-2xl font-fantasy text-primary tracking-wider">{character.name}</h2>
