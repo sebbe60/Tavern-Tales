@@ -5,13 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Minus, Sparkles } from "lucide-react";
+import { Loader2, Plus, Minus, Sparkles, Shuffle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import generatedBg from "@assets/generated_images/fantasy_tavern_interior_background_blurred.png";
 
-// Stats start at 1, no limits
 const BASE_STAT = 1;
 
-// All available stats - core D&D stats plus extras
 const ALL_STATS = {
   str: { name: "Strength", description: "Physical power and melee combat" },
   dex: { name: "Dexterity", description: "Agility, reflexes, and finesse" },
@@ -27,20 +26,45 @@ const ALL_STATS = {
 
 type StatKey = keyof typeof ALL_STATS;
 
+const RACE_OPTIONS = ["Human", "Elf", "Dwarf", "Halfling", "Tiefling", "Dragonborn", "Orc", "Gnome"];
+const CLASS_OPTIONS = ["Warrior", "Mage", "Rogue", "Ranger", "Cleric", "Paladin", "Bard", "Druid"];
+
+const STAT_PRESETS: Record<string, { label: string; description: string; stats: Record<StatKey, number> }> = {
+  balanced: {
+    label: "Balanced",
+    description: "Good all-rounder",
+    stats: { str: 5, dex: 5, con: 5, int: 5, wis: 5, cha: 5, luck: 5, per: 5, agi: 5, end: 5 },
+  },
+  warrior: {
+    label: "Warrior",
+    description: "Melee fighter",
+    stats: { str: 10, dex: 4, con: 8, int: 2, wis: 3, cha: 4, luck: 3, per: 3, agi: 5, end: 8 },
+  },
+  mage: {
+    label: "Mage",
+    description: "Arcane spellcaster",
+    stats: { str: 2, dex: 4, con: 4, int: 10, wis: 8, cha: 5, luck: 5, per: 6, agi: 3, end: 3 },
+  },
+  rogue: {
+    label: "Rogue",
+    description: "Sneaky & swift",
+    stats: { str: 4, dex: 10, con: 4, int: 5, wis: 4, cha: 6, luck: 7, per: 7, agi: 8, end: 5 },
+  },
+};
+
 export default function CharacterCreation() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [gameState, setGameState] = useState<any>(null);
-  
+
   const [name, setName] = useState("");
   const [race, setRace] = useState("");
   const [charClass, setCharClass] = useState("");
-  
-  // All stats start at 1, no limits
+
   const [stats, setStats] = useState<Record<StatKey, number>>({
     str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1,
-    luck: 1, per: 1, agi: 1, end: 1
+    luck: 1, per: 1, agi: 1, end: 1,
   });
 
   useEffect(() => {
@@ -50,13 +74,9 @@ export default function CharacterCreation() {
   const loadGameState = async () => {
     const gameId = localStorage.getItem("gameId");
     const sessionToken = localStorage.getItem("sessionToken");
-    
+
     if (!gameId || !sessionToken) {
-      toast({
-        title: "Error",
-        description: "No active game found. Returning to lobby...",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "No active game found. Returning to lobby...", variant: "destructive" });
       setTimeout(() => setLocation("/"), 2000);
       return;
     }
@@ -64,39 +84,39 @@ export default function CharacterCreation() {
     try {
       const response = await fetch(`/api/games/${gameId}/state`);
       if (!response.ok) throw new Error("Failed to load game");
-      
       const state = await response.json();
       setGameState(state);
-      
       const myPlayer = state.players.find((p: any) => p.sessionToken === sessionToken);
       if (myPlayer) {
         const myCharacter = state.characters.find((c: any) => c.playerId === myPlayer.id);
-        if (myCharacter) {
-          setLocation("/game");
-        }
+        if (myCharacter) setLocation("/game");
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load game state",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to load game state", variant: "destructive" });
     }
   };
 
   const adjustStat = (stat: StatKey, delta: number) => {
     const newValue = stats[stat] + delta;
-    if (newValue < 1) return; // Minimum is 1
+    if (newValue < 1) return;
     setStats(prev => ({ ...prev, [stat]: newValue }));
+  };
+
+  const applyPreset = (presetKey: string) => {
+    setStats({ ...STAT_PRESETS[presetKey].stats });
+  };
+
+  const randomizeStats = () => {
+    const randomStats = {} as Record<StatKey, number>;
+    (Object.keys(ALL_STATS) as StatKey[]).forEach(stat => {
+      randomStats[stat] = Math.floor(Math.random() * 8) + 1;
+    });
+    setStats(randomStats);
   };
 
   const createCharacter = async () => {
     if (!name.trim() || !race.trim() || !charClass.trim()) {
-      toast({
-        title: "Incomplete",
-        description: "Please fill in all character details",
-        variant: "destructive",
-      });
+      toast({ title: "Incomplete", description: "Please fill in all character details", variant: "destructive" });
       return;
     }
 
@@ -104,14 +124,12 @@ export default function CharacterCreation() {
     try {
       const gameId = localStorage.getItem("gameId");
       const sessionToken = localStorage.getItem("sessionToken");
-      
+
       const stateResponse = await fetch(`/api/games/${gameId}/state`);
       const state = await stateResponse.json();
       const myPlayer = state.players.find((p: any) => p.sessionToken === sessionToken);
-      
       if (!myPlayer) throw new Error("Player not found");
 
-      // Calculate HP based on CON and class, MP based on INT
       const baseHp = 10 + stats.con * 2;
       const baseMp = 5 + stats.int * 2;
 
@@ -129,16 +147,9 @@ export default function CharacterCreation() {
           hp: { current: baseHp, max: baseHp },
           mp: { current: baseMp, max: baseMp },
           stats: {
-            str: stats.str,
-            dex: stats.dex,
-            con: stats.con,
-            int: stats.int,
-            wis: stats.wis,
-            cha: stats.cha,
-            luck: stats.luck,
-            per: stats.per,
-            agi: stats.agi,
-            end: stats.end,
+            str: stats.str, dex: stats.dex, con: stats.con, int: stats.int,
+            wis: stats.wis, cha: stats.cha, luck: stats.luck, per: stats.per,
+            agi: stats.agi, end: stats.end,
           },
           statusEffects: [],
           abilities: [],
@@ -148,18 +159,10 @@ export default function CharacterCreation() {
 
       if (!response.ok) throw new Error("Failed to create character");
 
-      toast({
-        title: "Character Created!",
-        description: `${name} is ready for adventure`,
-      });
-
+      toast({ title: "Character Created!", description: `${name} is ready for adventure` });
       setTimeout(() => setLocation("/game"), 1000);
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create character",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to create character", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -169,7 +172,7 @@ export default function CharacterCreation() {
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-hidden font-serif relative flex items-center justify-center p-4">
-      <div 
+      <div
         className="fixed inset-0 z-0 bg-cover bg-center pointer-events-none opacity-40 blur-sm scale-110"
         style={{ backgroundImage: `url(${generatedBg})` }}
       />
@@ -187,8 +190,9 @@ export default function CharacterCreation() {
             {/* Left: Basic Info */}
             <div className="space-y-6">
               <h2 className="text-2xl font-fantasy text-primary border-b border-primary/20 pb-2">Character Details</h2>
-              
-              <div className="space-y-4">
+
+              <div className="space-y-5">
+                {/* Name */}
                 <div>
                   <Label htmlFor="name" className="font-fantasy tracking-wide">Name</Label>
                   <Input
@@ -201,6 +205,7 @@ export default function CharacterCreation() {
                   />
                 </div>
 
+                {/* Race with chips */}
                 <div>
                   <Label htmlFor="race" className="font-fantasy tracking-wide">Race</Label>
                   <Input
@@ -211,8 +216,26 @@ export default function CharacterCreation() {
                     className="bg-black/20 border-white/10 mt-2"
                     data-testid="input-character-race"
                   />
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {RACE_OPTIONS.map(r => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setRace(r)}
+                        className={cn(
+                          "text-xs px-2.5 py-1 rounded-full border transition-all",
+                          race === r
+                            ? "bg-primary/30 border-primary/60 text-primary"
+                            : "bg-black/20 border-white/10 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                        )}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
+                {/* Class with chips */}
                 <div>
                   <Label htmlFor="class" className="font-fantasy tracking-wide">Class</Label>
                   <Input
@@ -223,6 +246,23 @@ export default function CharacterCreation() {
                     className="bg-black/20 border-white/10 mt-2"
                     data-testid="input-character-class"
                   />
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {CLASS_OPTIONS.map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setCharClass(c)}
+                        className={cn(
+                          "text-xs px-2.5 py-1 rounded-full border transition-all",
+                          charClass === c
+                            ? "bg-accent/30 border-accent/60 text-accent"
+                            : "bg-black/20 border-white/10 text-muted-foreground hover:border-accent/30 hover:text-foreground"
+                        )}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -231,24 +271,57 @@ export default function CharacterCreation() {
                 <div className="text-4xl font-fantasy text-primary mt-1" data-testid="text-total-points">
                   {totalPoints}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">No limits - assign freely!</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  HP: {10 + stats.con * 2} · MP: {5 + stats.int * 2}
+                </div>
               </div>
 
               <div className="bg-black/20 p-4 rounded-lg border border-white/10 text-sm text-muted-foreground space-y-2">
                 <p className="font-fantasy text-primary">How it works:</p>
                 <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>All stats start at 1</li>
-                  <li>No point limits - customize freely</li>
-                  <li>The AI Game Master will adjust your HP, MP, XP, inventory, and skills during the adventure!</li>
+                  <li>HP scales with CON · MP scales with INT</li>
+                  <li>No point limits — customize freely</li>
+                  <li>The AI Game Master adjusts HP, MP, XP, inventory, and skills during the adventure!</li>
                 </ul>
               </div>
             </div>
 
             {/* Right: Stats */}
-            <div className="space-y-6">
-              <h2 className="text-2xl font-fantasy text-primary border-b border-primary/20 pb-2">Ability Scores</h2>
-              
-              <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-primary/20 pb-2">
+                <h2 className="text-2xl font-fantasy text-primary">Ability Scores</h2>
+              </div>
+
+              {/* Preset buttons */}
+              <div>
+                <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Quick Presets</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(STAT_PRESETS).map(([key, preset]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => applyPreset(key)}
+                      className="text-left px-3 py-2 rounded-lg border border-white/10 bg-black/20 hover:bg-black/40 hover:border-primary/30 transition-all group"
+                    >
+                      <div className="text-sm font-fantasy text-foreground group-hover:text-primary transition-colors">{preset.label}</div>
+                      <div className="text-[10px] text-muted-foreground">{preset.description}</div>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={randomizeStats}
+                    className="text-left px-3 py-2 rounded-lg border border-white/10 bg-black/20 hover:bg-black/40 hover:border-accent/30 transition-all group col-span-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Shuffle className="w-3.5 h-3.5 text-accent" />
+                      <div className="text-sm font-fantasy text-foreground group-hover:text-accent transition-colors">Random Build</div>
+                      <div className="text-[10px] text-muted-foreground ml-auto">Surprise me!</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-2">
                 {(Object.keys(ALL_STATS) as StatKey[]).map((stat) => (
                   <div key={stat} className="flex items-center justify-between bg-black/20 p-3 rounded-lg border border-white/10">
                     <div className="flex-1">
@@ -259,7 +332,7 @@ export default function CharacterCreation() {
                         {ALL_STATS[stat].description}
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                       <Button
                         size="icon"
@@ -271,11 +344,11 @@ export default function CharacterCreation() {
                       >
                         <Minus className="w-4 h-4" />
                       </Button>
-                      
+
                       <div className="text-2xl font-fantasy text-primary w-12 text-center" data-testid={`text-stat-${stat}`}>
                         {stats[stat]}
                       </div>
-                      
+
                       <Button
                         size="icon"
                         variant="outline"

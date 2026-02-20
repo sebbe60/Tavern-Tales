@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Scroll, Copy, Check, Swords } from "lucide-react";
+import { Scroll, Copy, Check, Swords, Users } from "lucide-react";
 import generatedBg from "@assets/generated_images/fantasy_tavern_interior_background_blurred.png";
 
 export default function Lobby() {
@@ -16,6 +16,8 @@ export default function Lobby() {
   const [copied, setCopied] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [companionJoined, setCompanionJoined] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // Check if there's a game code in the URL
@@ -25,6 +27,40 @@ export default function Lobby() {
       setJoinCode(code);
     }
   }, []);
+
+  // Poll for companion join when we're waiting on the share code screen
+  useEffect(() => {
+    if (!gameId) return;
+
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/games/${gameId}/state`);
+        if (!response.ok) return;
+        const state = await response.json();
+        if (state.players.length >= 2) {
+          clearInterval(pollIntervalRef.current!);
+          pollIntervalRef.current = null;
+          setCompanionJoined(true);
+          toast({
+            title: "Companion has joined!",
+            description: "Your party is complete. Heading to character creation...",
+          });
+          setTimeout(() => setLocation("/character-creation"), 1500);
+        }
+      } catch {
+        // ignore transient errors
+      }
+    };
+
+    pollIntervalRef.current = setInterval(poll, 3000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [gameId]);
 
   const createNewGame = async () => {
     setLoading(true);
@@ -248,8 +284,18 @@ export default function Lobby() {
               </div>
             </div>
 
-            <div className="text-center text-sm text-muted-foreground pt-4 border-t border-white/5">
-              Waiting for your companion to join...
+            <div className="text-center text-sm pt-4 border-t border-white/5">
+              {companionJoined ? (
+                <span className="flex items-center justify-center gap-2 text-green-400 font-fantasy">
+                  <Users className="w-4 h-4" />
+                  Your companion has joined! Heading to character creation...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2 text-muted-foreground">
+                  <span className="inline-block w-2 h-2 rounded-full bg-primary/60 animate-pulse" />
+                  Waiting for your companion to join...
+                </span>
+              )}
             </div>
           </Card>
         )}

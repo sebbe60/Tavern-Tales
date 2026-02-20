@@ -66,72 +66,99 @@ function buildCharacterContext(characters: any[]): string {
 function buildSystemPrompt(characters: any[]): string {
   const characterContext = buildCharacterContext(characters);
   const characterNames = characters.map(c => c.name).join(", ");
-  
-  return `You are the Dungeon Master (DM) for a D&D campaign called "Tavern Tales."
 
-THE PLAYERS:
+  return `You are the Game Master for "Tavern Tales," a co-op D&D adventure for two players.
+
+PLAYERS:
 ${characterContext}
 
-YOUR ABSOLUTE RULES:
+=== RULE 1: DICE-FIRST — MANDATORY ===
+For ANY action with an uncertain outcome (attacking, sneaking, persuading, stealing, picking locks, jumping, intimidating, etc.) you MUST stop and ask for a dice roll BEFORE narrating the result. Format:
+> **Roll required:** Roll 1d20
+> 1-5: Critical failure — [describe bad outcome]
+> 6-10: Failure — [describe failure]
+> 11-15: Partial success — [describe mixed outcome]
+> 16-20: Success — [describe success]
+> 20: Critical success — [describe exceptional outcome]
 
-1. **NEVER ACT FOR PLAYERS**: Do not write dialogue, actions, or decisions for the players. Only describe the environment, NPCs, and consequences of their actions.
+When you receive a message containing a dice roll result (shown as "Rolled XdY: **N**"), IMMEDIATELY resolve the pending action using that exact number. Do not ask for another roll.
 
-2. **STOP AND WAIT**: After describing a scene or NPC response, STOP. Do not continue the story. Wait for the players to tell you what they do next.
+=== RULE 2: CHARACTER_UPDATES — MANDATORY ===
+After EVERY combat round, loot found, damage taken, or challenge completed, you MUST include a CHARACTER_UPDATES block. This is not optional.
 
-3. **USE THEIR STATS**: When a player attempts something risky or uncertain, consider their ability scores. Ask them to roll dice when appropriate.
+ALWAYS update when:
+- Any character takes damage → reduce hp.current
+- Any character heals → increase hp.current
+- Any character casts a spell → reduce mp.current
+- Players find or lose items → addInventory / removeInventory
+- A challenge or enemy is defeated → grant XP
+- A status effect is applied or removed → addStatusEffect / removeStatusEffect
+- An ability is used → useAbility
 
-4. **BE CONCISE**: Keep descriptions to 2-4 paragraphs maximum.
+XP GRANTS (use these exact amounts):
+- Minor obstacle/puzzle: 15 XP each
+- Weak enemy (goblin, rat, thug): 25 XP each
+- Moderate enemy (wolf, bandit, skeleton): 50 XP each
+- Strong enemy (orc, troll, mage): 100 XP each
+- Story milestone/quest complete: 75 XP each
+- Level up: set xp to 0, increase level by 1, multiply xpToNextLevel by 1.5
 
-5. **ACKNOWLEDGE BOTH PLAYERS**: Address actions from all players.
-
-6. **FORMAT NICELY**: Use **bold** for NPC names and important items. Use *italics* for atmosphere.
-
-7. **ASK FOR DICE ROLLS**: When outcomes are uncertain, ask players to roll.
-
-CHARACTER MANAGEMENT - CRITICAL:
-
-You control the characters' progression. After your narrative response, you MAY include a CHARACTER_UPDATES block to modify character stats. Use this format at the END of your response:
-
+FORMAT (place at the very end of your response):
 <<<CHARACTER_UPDATES>>>
 {
   "CharacterName": {
-    "hp": {"current": 15, "max": 20},
-    "mp": {"current": 8, "max": 12},
-    "xp": 25,
-    "xpToNextLevel": 100,
-    "level": 1,
-    "addInventory": ["Iron Sword", "Health Potion"],
-    "removeInventory": ["Rusty Dagger"],
-    "addStatusEffect": {"name": "Poisoned", "description": "Losing HP each turn", "duration": 3, "severity": "moderate"},
+    "hp": {"current": 12, "max": 20},
+    "mp": {"current": 6, "max": 10},
+    "xp": 50,
+    "level": 2,
+    "xpToNextLevel": 150,
+    "addInventory": ["Iron Sword"],
+    "removeInventory": ["Torch"],
+    "addStatusEffect": {"name": "Poisoned", "description": "Losing 2 HP per turn", "duration": 3, "severity": "moderate"},
     "removeStatusEffect": "Burning",
-    "addAbility": {"name": "Power Strike", "description": "A mighty blow dealing extra damage", "cooldown": 3, "currentCooldown": 0, "power": "moderate", "type": "attack"},
     "useAbility": "Power Strike"
   }
 }
 <<<END_UPDATES>>>
 
-WHEN TO UPDATE CHARACTERS:
-- Grant XP when players overcome challenges (10-50 XP for minor, 50-100 for major)
-- Level up when XP reaches xpToNextLevel (then set XP to 0 and increase xpToNextLevel)
-- Add items to inventory when found or purchased
-- Remove items when used, lost, or traded
-- Apply status effects from combat, traps, or magic (poisoned, burning, frightened, blessed, etc.)
-- Remove status effects when cured or expired
-- Grant new abilities based on class and story progression
-- Reduce HP from damage, restore from healing
-- Reduce MP when casting spells
-- Use "useAbility" to put an ability on cooldown
+=== RULE 3: COMBAT ===
+Run combat round by round. Each round:
+1. Players declare their action and roll to attack (1d20 + relevant modifier)
+2. On hit (roll 11+): deal damage (warrior 1d8, rogue 1d6, mage 1d6 spell)
+3. Enemies AUTOMATICALLY deal damage each round (goblin 3, wolf 5, orc 7, troll 10)
+4. Apply all HP changes via CHARACTER_UPDATES every single round
+5. Grant XP immediately when an enemy is defeated
 
-Only include CHARACTER_UPDATES when something actually changes. Most responses won't need it.
+=== RULE 4: DM BEHAVIOR ===
+- NEVER act or speak for the players
+- Keep narration to 2-3 paragraphs; then STOP and wait
+- Use **bold** for NPC names and items, *italics* for atmosphere
+- Address all players by name
 
-CURRENT SITUATION: Respond to what the players do and manage their characters appropriately.`;
+=== EXAMPLE (follow this pattern exactly) ===
+Player: "I try to sneak past the guard."
+GM: The corridor is dimly lit. The guard paces slowly...
+> **Roll required:** Roll 1d20 (DEX check)
+> 1-5: You knock something over — the guard spots you
+> 6-10: The guard hears something, turns suspicious
+> 11-15: You slip past but scrape the wall
+> 16-20: You vanish into the shadows unseen
+
+[Player rolls 1d20 and gets 14]
+GM: You press against the cold stone wall, heart pounding...
+*(resolves the partial success outcome)*
+<<<CHARACTER_UPDATES>>>
+{"${characterNames.split(", ")[0]}": {"xp": 15}}
+<<<END_UPDATES>>>
+
+Now respond to the players' actions.`;
 }
 
-// Opening story when both players are ready
+// Fallback static opening story (used when no API key or AI fails)
 function generateOpeningStory(characters: any[]): string {
   const names = characters.map(c => c.name).join(" and ");
-  const classes = characters.map(c => `${c.name} the ${c.class}`).join(" and ");
-  
+  const classes = characters.map(c => `${c.name} the ${c.race} ${c.class}`).join(" and ");
+
   return `*The heavy oak door of The Rusty Tankard groans open, letting in a gust of cold night air and two weary travelers.*
 
 The tavern falls momentarily silent as the regulars size up the newcomers: **${classes}**.
@@ -147,6 +174,30 @@ The **Tavern Keeper**, a barrel-chested man with a magnificent beard and a scar 
 ---
 
 **${names}**, what do you do?`;
+}
+
+// AI-generated dynamic opening story unique to the characters
+async function generateDynamicOpening(characters: any[], apiKey: string): Promise<string> {
+  const charDescriptions = characters.map(c => `${c.name} the ${c.race} ${c.class}`).join(" and ");
+  const names = characters.map(c => c.name).join(" and ");
+
+  const prompt = `Write a vivid, atmospheric 3-paragraph D&D tavern opening scene for two adventurers: ${charDescriptions}.
+
+Requirements:
+- Invent a unique, memorable tavern name that fits the characters' races/classes
+- Describe the tavern atmosphere with rich sensory details (sights, sounds, smells)
+- Include one notable NPC (innkeeper, mysterious stranger, or bard) who hints at an adventure opportunity
+- Reference the characters' races/classes in how other patrons react to them
+- End with: "**${names}**, what do you do?"
+- Use **bold** for NPC names and important items, *italics* for atmosphere
+- Do NOT describe what the characters do — only the scene around them
+- Keep it to 3 paragraphs`;
+
+  const messages = [
+    { role: "user", content: prompt }
+  ];
+
+  return await callOpenRouter(messages, apiKey);
 }
 
 // Parse character updates from AI response
@@ -282,15 +333,15 @@ async function callOpenRouter(messages: any[], apiKey: string): Promise<string> 
     body: JSON.stringify({
       model: "mistralai/mistral-7b-instruct:free",
       messages,
-      max_tokens: 800,
+      max_tokens: 1200,
       temperature: 0.8,
-      stop: ["[/INST]", "[INST]", "###"],
     }),
   });
-  
+
   const data = await response.json();
   if (data.choices && data.choices.length > 0) {
     let content = data.choices[0].message.content;
+    // Strip any leaked instruction tokens just in case
     content = content.replace(/\[\/INST\]/g, "").replace(/\[INST\]/g, "").trim();
     return content;
   }
@@ -379,7 +430,18 @@ export async function registerRoutes(
         if (validCharacters.length === 2) {
           const existingMessages = await storage.getMessagesByGame(player.gameId);
           if (existingMessages.length === 0) {
-            const openingStory = generateOpeningStory(validCharacters);
+            const apiKey = process.env.OPENROUTER_API_KEY || "";
+            let openingStory: string;
+            if (apiKey) {
+              try {
+                openingStory = await generateDynamicOpening(validCharacters, apiKey);
+              } catch (e) {
+                console.error("Dynamic opening failed, using fallback:", e);
+                openingStory = generateOpeningStory(validCharacters);
+              }
+            } else {
+              openingStory = generateOpeningStory(validCharacters);
+            }
             await storage.createMessage({
               gameId: player.gameId,
               playerId: null,
@@ -480,7 +542,11 @@ export async function registerRoutes(
         const systemPrompt = buildSystemPrompt(validCharacters);
         
         // Format conversation history properly
-        const conversationHistory = allMessages.map(m => {
+        // Detect if the latest round of player messages contains dice rolls
+        const lastRoundMessages = allMessages.filter(m => m.role === "user").slice(-allPlayers.length);
+        const lastRoundHasDiceRoll = lastRoundMessages.some(m => m.diceRoll);
+
+        const conversationHistory = allMessages.map((m, idx) => {
           if (m.role === "assistant") {
             // Strip out any character updates block for cleaner context
             const cleanContent = m.content.replace(/<<<CHARACTER_UPDATES>>>[\s\S]*?<<<END_UPDATES>>>/, "").trim();
@@ -489,6 +555,10 @@ export async function registerRoutes(
             let msgContent = `**${m.author}**: ${m.content}`;
             if (m.diceRoll) {
               msgContent += ` *(Rolled ${m.diceRoll.dice}: **${m.diceRoll.result}** [${m.diceRoll.rolls.join(", ")}])*`;
+              // If this is one of the last-round dice roll messages, prepend a resolution cue
+              if (lastRoundHasDiceRoll && lastRoundMessages.some(lr => lr.id === m.id)) {
+                msgContent = `<<<DICE RESULT: Use this roll to resolve the pending uncertain action>>>\n${msgContent}`;
+              }
             }
             return { role: "user", content: msgContent };
           }
@@ -560,6 +630,7 @@ export async function registerRoutes(
             author: "Game Master",
             content: narrative,
             diceRoll: null,
+            characterUpdates: updates || null,
           });
           
         } catch (aiError) {
@@ -635,7 +706,17 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Adventure already started" });
       }
       
-      const openingStory = generateOpeningStory(validCharacters);
+      const apiKey = process.env.OPENROUTER_API_KEY || "";
+      let openingStory: string;
+      if (apiKey) {
+        try {
+          openingStory = await generateDynamicOpening(validCharacters, apiKey);
+        } catch (e) {
+          openingStory = generateOpeningStory(validCharacters);
+        }
+      } else {
+        openingStory = generateOpeningStory(validCharacters);
+      }
       const message = await storage.createMessage({
         gameId,
         playerId: null,
@@ -644,7 +725,7 @@ export async function registerRoutes(
         content: openingStory,
         diceRoll: null,
       });
-      
+
       res.json(message);
     } catch (error) {
       res.status(500).json({ error: "Failed to start adventure" });
